@@ -35,9 +35,7 @@
 #include <linux/moduleparam.h>
 #include <asm/cputime.h>
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif
+#include "powersuspend.h"
 
 #include "symsearch.h"
 SYMSEARCH_DECLARE_FUNCTION_STATIC(unsigned long, nr_running_s, void);
@@ -852,7 +850,6 @@ static int cpufreq_governor_smartass(struct cpufreq_policy *new_policy,
 	return 0;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void smartass_suspend(int cpu, int suspend)
 {
 	struct smartass_info_s *this_smartass = &per_cpu(smartass_info, smp_processor_id());
@@ -884,7 +881,7 @@ static void smartass_suspend(int cpu, int suspend)
 	reset_timer(smp_processor_id(),this_smartass);
 }
 
-static void smartass_early_suspend(struct early_suspend *handler) {
+static void smartass_early_suspend(struct power_suspend *handler) {
 	int i;
 	if (suspended || sleep_ideal_freq==0) // disable behavior for sleep_ideal_freq==0
 		return;
@@ -893,7 +890,7 @@ static void smartass_early_suspend(struct early_suspend *handler) {
 		smartass_suspend(i,1);
 }
 
-static void smartass_late_resume(struct early_suspend *handler) {
+static void smartass_late_resume(struct power_suspend *handler) {
 	int i;
 	if (!suspended) // already not suspended so nothing to do
 		return;
@@ -902,12 +899,13 @@ static void smartass_late_resume(struct early_suspend *handler) {
 		smartass_suspend(i,0);
 }
 
-static struct early_suspend smartass_power_suspend = {
+static struct power_suspend smartass_power_suspend = {
 	.suspend = smartass_early_suspend,
 	.resume = smartass_late_resume,
+#ifdef CONFIG_MACH_HERO
 	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1,
-};
 #endif
+};
 
 static int __init cpufreq_smartass_init(void)
 {
@@ -958,9 +956,7 @@ static int __init cpufreq_smartass_init(void)
 
 	INIT_WORK(&freq_scale_work, cpufreq_smartass_freq_change_time_work);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	register_early_suspend(&smartass_power_suspend);
-#endif
+	register_power_suspend(&smartass_power_suspend);
 
 	return cpufreq_register_governor(&cpufreq_gov_smartassv2);
 }
